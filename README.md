@@ -1,123 +1,185 @@
-# GlacioGuard
+# 🏔️ GlacioGuard
 
-**GlacioGuard** is a scalable, multi-modal early-warning platform designed for real-time monitoring of glacial lakes and assessing Glacial Lake Outburst Flood (GLOF) risk. It integrates satellite imagery, high-frequency weather data, snow cover metrics, and terrain topography to construct a robust, deterministic observation engine.
+![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Status](https://img.shields.io/badge/status-active-success)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
+
+**GlacioGuard** is a highly scalable, multi-modal early-warning platform designed for real-time monitoring of glacial lakes and assessing **Glacial Lake Outburst Flood (GLOF)** risk in High Mountain Asia (HMA) and the Indian Himalayas.
+
+By integrating multi-spectral satellite imagery, high-frequency weather data, snow cover metrics, and high-resolution terrain topography, GlacioGuard constructs a robust, deterministic observation engine to fuel hazard baseline modeling and anomaly detection.
 
 ---
 
-## 🏔️ System Architecture
+## 📑 Table of Contents
+- [System Architecture](#-system-architecture)
+  - [Step 1: Master Lake Inventory](#step-1--master-lake-inventory)
+  - [Step 2: Observation Engine](#step-2--historical--near-real-time-observation-engine)
+- [Methodology & Data integrity](#-methodology--data-integrity)
+- [Setup and Installation](#-setup-and-installation)
+- [Configuration & Credentials](#-configuration--credentials)
+- [Usage Guide](#-usage-guide)
+- [Data Schemas & Outputs](#-data-schemas--outputs)
+- [Next Steps (Step 3)](#-next-steps)
 
-The platform is designed in distinct, decoupled stages.
+---
+
+## 🏗️ System Architecture
+
+The platform is designed in distinct, decoupled stages to ensure deterministic reproducibility and strict data provenance.
 
 ### Step 1 — Master Lake Inventory
 Builds a clean, canonical inventory of Indian glacial lakes from the best available scientific datasets. 
 - **Data Source:** PANGAEA (Kumar & Vijay, 2026) - *Inventory of Glacial Lakes in High Mountain Asia*
-- **Filtering:** Filters 31,698 lakes to strictly those within Indian boundaries using Natural Earth geometry.
-- **Output:** Assigns a deterministic, stable identifier (`lake_uid = GLACIOGUARD_IN_XXXXXX`) used downstream.
+- **Filtering Pipeline:** Geographically filters 31,698 lakes to strictly those within Indian boundaries using Natural Earth geometry (`Admin-0`/`Admin-1`).
+- **Identity Assignment:** Assigns a deterministic, stable identifier (`lake_uid = GLACIOGUARD_IN_XXXXXX`) used universally across all downstream pipelines.
+- **Scale:** Processes ~300 MB of source data into lightweight `.parquet` and `.geojson` canonical stores.
 
 ### Step 2 — Historical + Near-Real-Time Observation Engine
-Establishes a scalable ingestion and processing pipeline connecting each `lake_uid` to critical environmental observations. The pipeline handles data extraction, feature engineering, and temporal alignment across disparate datasets with robust quality controls.
+Establishes a massively scalable ingestion and processing pipeline connecting each `lake_uid` to critical, time-variant environmental observations.
 
 #### Supported Data Modalities:
-- **Terrain:** Static SRTM 30m DEM elevation, slope, and aspect via OpenTopography API.
-- **Weather:** Hourly ERA5-Land (temperature, precipitation, snowfall) via Copernicus CDS API (NetCDF/ZIP).
-- **Satellite:** Sentinel-2 L2A via CDSE STAC (water area tracking & cloud masking).
-- **Snow:** MODIS Snow Cover (MOD10A1) via NASA Earthdata.
-- **Precipitation:** High-frequency GPM IMERG via NASA Earthdata.
+1. **Terrain (Topography):** Static SRTM 30m DEM elevation, slope, and aspect profiles via **OpenTopography API**.
+2. **Weather (Meteorology):** Hourly temperature, precipitation, and snowfall metrics via **Copernicus CDS API** (ERA5-Land).
+3. **Satellite (Optical):** Water area tracking and multi-spectral indices via **Copernicus Data Space (CDSE) STAC** (Sentinel-2 L2A).
+4. **Snow (Cryosphere):** Normalized Difference Snow Index (NDSI) tracking via **NASA Earthdata** (MODIS MOD10A1).
+5. **Precipitation (High-Frequency):** Sub-daily extreme rain events via **NASA Earthdata** (GPM IMERG).
+
+---
+
+## 🛡️ Methodology & Data Integrity
+
+GlacioGuard places an extreme emphasis on data integrity for critical early-warning contexts:
+- **0-Temporal Leakage Guarantee:** The Temporal Alignment engine (`processing/temporal_alignment.py`) utilizes strictly backward `merge_asof` joins. Future data is *never* allowed to leak into past observation features, ensuring safe ML training downstream.
+- **Atomic Writes:** All data operations write to temporary `.tmp.parquet` buffers, only replacing the canonical data store if validation succeeds.
+- **Deduplication:** Every row is assigned a deterministic SHA-256 `observation_id` (hashed from the `lake_uid`, `timestamp`, and `source`), ensuring reruns do not duplicate or corrupt rows.
+- **Cloud Masking:** Satellite extraction automatically skips or masks scenes exceeding strict cloud cover thresholds defined in configuration.
 
 ---
 
 ## ⚙️ Setup and Installation
 
 ### 1. Environment Setup
-GlacioGuard is built on Python and heavily utilizes `pandas`, `geopandas`, and `xarray`.
+GlacioGuard is built heavily on the `geopandas`, `xarray`, and `pandas` stack. An isolated virtual environment is strongly recommended.
 
 ```bash
+# Clone the repository
+git clone https://github.com/HimanshuIITP/GlacioGuard.git
+cd GlacioGuard
+
 # Create virtual environment
 python -m venv venv
 
 # Activate (Windows)
 .\venv\Scripts\activate
-# OR Activate (Unix)
+# Activate (Unix/macOS)
 source venv/bin/activate
 
-# Install dependencies
+# Install strictly pinned reproducible dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Authentication & Credentials
-The Observation Engine aggregates data from multiple secure agencies. You can run the pipeline without all keys (unavailable services will gracefully skip), but for full functionality, configure the following credentials in your environment or via a `.env` file:
+---
 
-- **Sentinel-2 (Copernicus Data Space):** Set `CDSE_CLIENT_ID` and `CDSE_CLIENT_SECRET`.
-- **ERA5-Land (Copernicus CDS):** Set `CDSAPI_URL` and `CDSAPI_KEY` (or configure `~/.cdsapirc`).
-- **NASA Earthdata (MODIS & GPM):** Set `EARTHDATA_USERNAME` and `EARTHDATA_PASSWORD` (or configure `~/.netrc`).
-- **OpenTopography:** Set `OPENTOPOGRAPHY_API_KEY`.
+## 🔑 Configuration & Credentials
+
+The Observation Engine aggregates data from multiple secure science agencies. You can run the pipeline without all keys (unavailable services will gracefully skip), but for full production functionality, configure the following credentials:
+
+### Method A: Environment Variables (or `.env` file)
+Create a `.env` file in the root directory:
+```env
+# Copernicus Data Space (Sentinel-2)
+CDSE_CLIENT_ID=your_client_id
+CDSE_CLIENT_SECRET=your_client_secret
+
+# Copernicus CDS (ERA5-Land)
+CDSAPI_URL=https://cds.climate.copernicus.eu/api/v2
+CDSAPI_KEY=your_cds_api_key
+
+# NASA Earthdata (MODIS & GPM)
+EARTHDATA_USERNAME=your_username
+EARTHDATA_PASSWORD=your_password
+
+# OpenTopography (SRTM DEM)
+OPENTOPOGRAPHY_API_KEY=your_api_key
+```
+
+### Method B: Native Config Files
+Alternatively, standard configuration files in your home directory are respected:
+- `~/.cdsapirc` (for ERA5-Land)
+- `~/.netrc` (for NASA Earthdata)
+
+### Pipeline Tuning
+Modify parameters inside the `config/` directory:
+- **`observation_config.yaml`**: Date ranges, strict cloud cover thresholds, and spatial buffer sizes.
+- **`test_lakes.yaml`**: Pre-defined UIDs for rapid pipeline validation.
 
 ---
 
-## 🚀 Usage
+## 🚀 Usage Guide
 
-The project utilizes modular scripts for each step, and a unified runner for Step 2.
+The project utilizes modular scripts for each step, alongside a unified runner for Step 2.
 
-### Step 1: Initialize Inventory
+### Step 1: Initialize the Lake Inventory
 ```bash
 python ingestion/pangaea_lake_inventory.py
 ```
-*(The first run downloads ~300 MB of source data. Subsequent runs use cache unless `--force` is passed.)*
+*(Data is cached in `data/raw/` to speed up future runs. Use `--force` to re-download).*
 
-### Step 2: Observation Engine
-You can run Step 2 for specific targets or the entire inventory.
+### Step 2: Run the Observation Engine
+The `run_step2.py` orchestrator executes extraction, feature engineering, and temporal alignment across all available data modalities.
 
 ```bash
-# Validate credentials and API access gracefully
+# 1. Validate credentials and API access gracefully
 python run_step2.py --check-access
 
-# Run a test pass for a deterministically auto-selected subset of lakes
+# 2. Run a fast test pass (uses `config/test_lakes.yaml` for a small lake subset)
 python run_step2.py --test
 
-# Run the pipeline for a specific lake
+# 3. Process a specific glacial lake by UID
 python run_step2.py --lake-id GLACIOGUARD_IN_001593
 
-# Run the full pipeline for all lakes
+# 4. Execute the full production pipeline for all Indian lakes
 python run_step2.py --all
 ```
 
 ---
 
-## 📁 Project Structure & Outputs
+## 📁 Data Schemas & Outputs
 
-```
-GlacioGuard/
-├── config/                      # YAML configuration (dates, bounds, sources)
-├── ingestion/                   # Raw data downloaders and API clients
-│   ├── pangaea_lake_inventory.py
-│   ├── era5_land.py
-│   ├── gpm_imerg.py
-│   ├── modis_snow.py
-│   └── sentinel2_observations.py
-├── processing/                  # Feature engineering and temporal alignment
-│   ├── temporal_alignment.py
-│   ├── feature_engineering.py
-│   └── quality_control.py
-├── tests/                       # Automated leakage and temporal checks
-└── run_step2.py                 # Unified Stage 2 pipeline runner
-```
+All data outputs are routed to `data/processed/`. The capstone artifact of Step 2 is the `master_temporal_grid.parquet`.
 
-### Data Pipeline Outputs (`data/processed/`)
-All output files are deterministic, safely updated atomically, and deduplicated via `observation_id`.
-- `india_glacial_lakes_2022.geojson` / `.csv` (Canonical Inventory)
-- `lake_terrain.parquet` (Static SRTM elevation profiles)
-- `lake_weather_observations.parquet` (ERA5-Land hourly temps/precip)
-- `lake_satellite_observations.parquet` (Sentinel-2 metrics)
-- `lake_snow_observations.parquet` (MODIS NDSI tracking)
-- `lake_precipitation_highfreq.parquet` (GPM IMERG records)
-- `master_temporal_grid.parquet` (The final dynamically-aligned master feature table, guaranteed 0-temporal-leakage)
+### Key Output Files:
+- `india_glacial_lakes_2022.geojson` / `.csv`: The canonical spatial inventory.
+- `lake_terrain.parquet`: Static SRTM elevation profiles.
+- `lake_weather_observations.parquet`: Extracted hourly meteorology.
+- `lake_satellite_observations.parquet`: Multi-spectral optical observations.
+- `lake_snow_observations.parquet`: NDSI snow cover ratios.
+- `lake_precipitation_highfreq.parquet`: Sub-daily precipitation events.
+- **`master_temporal_grid.parquet`**: The finalized, dynamically-aligned master feature table.
+
+### `master_temporal_grid.parquet` Schema Highlight:
+| Field | Type | Description |
+|-------|------|-------------|
+| `lake_uid` | `string` | Canonical GlacioGuard identifier |
+| `reference_timestamp` | `datetime64[ns, UTC]` | Hourly alignment bucket |
+| `temperature_2m_c` | `float64` | Backwards-aligned temperature (°C) |
+| `precipitation_mm` | `float64` | Backwards-aligned precipitation |
+| `snow_fraction` | `float64` | Backwards-aligned NDSI fractional snow cover |
+| `actual_*_observation`| `boolean` | Flags indicating if real data exists at this precise timestamp (to differentiate from back-filled sparse data). |
 
 ---
 
-## 🔮 Next Steps (Step 3)
+## 🔮 Next Steps
 
-**Step 3** is currently pending. It will utilize the unified `master_temporal_grid.parquet` to:
-- Handle historical hazard event tagging.
-- Run baseline modeling and anomaly detection.
+**Step 3 (Hazard Modeling & Alerting)** is currently pending implementation. It will utilize the unified `master_temporal_grid.parquet` to:
+- Identify and tag historical hazard anomalies.
+- Establish baseline environmental envelopes for individual glacial lakes.
 - Train predictive Machine Learning algorithms.
-- Establish active GLOF risk hazard scoring & alerting mechanisms.
+- Establish real-time GLOF risk hazard scoring and dispatch alerting mechanisms.
+
+---
+
+### License
+This project is licensed under the MIT License. See the `LICENSE` file for details.
+Source data (PANGAEA) operates under CC-BY-4.0.
