@@ -1,0 +1,59 @@
+sentinel2:
+  dataset_name: "Sentinel-2 L2A"
+  organization: "European Space Agency / Copernicus"
+  official_url: "https://dataspace.copernicus.eu/"
+  license: "Copernicus Open Access"
+  version: "L2A (Bottom of Atmosphere)"
+  access_method: "CDSE STAC API + S3"
+  spatial_resolution: "10m / 20m"
+  temporal_resolution: "Irregular (~5 days)"
+  variables: ["MNDWI", "Lake Area", "Cloud Fraction"]
+  limitations: "Subject to cloud cover. High mountain shadow effects."
+
+era5_land:
+  dataset_name: "ERA5-Land hourly data"
+  organization: "ECMWF / Copernicus Climate Change Service"
+  official_url: "https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-land"
+  license: "Copernicus License V1.2"
+  version: "v1"
+  access_method: "CDS API"
+  spatial_resolution: "0.1 x 0.1 degree (~9km)"
+  temporal_resolution: "Hourly"
+  variables: ["2m_temperature", "total_precipitation", "snowfall"]
+  limitations: "Reanalysis product, ~2-3 months latency. Course resolution for micro-climates."
+
+modis_snow:
+  dataset_name: "MOD10A1"
+  organization: "NASA NSIDC"
+  official_url: "https://nsidc.org/data/mod10a1/versions/61"
+  license: "Open Data"
+  version: "061"
+  access_method: "NASA Earthdata (earthaccess)"
+  spatial_resolution: "500m"
+  temporal_resolution: "Daily"
+  variables: ["NDSI_Snow_Cover"]
+  limitations: "Subject to cloud cover. 500m resolution may miss small variations."
+
+gpm_imerg:
+  dataset_name: "GPM IMERG Final Precipitation L3 Half Hourly"
+  organization: "NASA GES DISC"
+  official_url: "https://disc.gsfc.nasa.gov/datasets/GPM_3IMERGHH_07/summary"
+  license: "Open Data"
+  version: "V07B"
+  access_method: "NASA Earthdata (earthaccess)"
+  spatial_resolution: "0.1 x 0.1 degree (~10km)"
+  temporal_resolution: "Half-Hourly (aggregated to Daily where needed)"
+  variables: ["precipitationCal"]
+  limitations: "Final product has ~3.5 months latency. Early/Late products have less accuracy."
+
+dem_srtm:
+  dataset_name: "SRTMGL1"
+  organization: "NASA / OpenTopography"
+  official_url: "https://portal.opentopography.org/datasetMetadata?otCollectionID=OT.042013.4326.1"
+  license: "Public Domain"
+  version: "v3"
+  access_method: "OpenTopography Global DEM API"
+  spatial_resolution: "30m (1 arc-second)"
+  temporal_resolution: "Static (2000)"
+  variables: ["elevation", "slope", "aspect"]
+  limitations: "Historical baseline (year 2000), may not reflect recent glacial retreat or geomorphology."

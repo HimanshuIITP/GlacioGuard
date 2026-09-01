@@ -1,0 +1,47 @@
+# Virtual environment
+venv/
+
+# Raw downloaded data (large binary files)
+data/raw/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+# Environments
+.env
+
+# Data and large files
+data/
+temp/
+*.hdf
+*.tif
+collections.json
+
+# Scratch files
+scratch_*.py
+step 2 changes.md
+test_cdse.py
+
+# Internal / IDE
+.agents/
+.gemini/
+
+# Windows venv artifacts (if created in root)
+Lib/
+Scripts/
+Include/
+pyvenv.cfg

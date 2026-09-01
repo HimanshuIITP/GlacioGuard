@@ -1,0 +1,16 @@
+geopandas
+pandas
+shapely
+requests
+pyproj
+pystac-client
+rasterio
+rioxarray
+xarray
+cdsapi
+earthaccess
+pyarrow
+pyyaml
+netCDF4
+h5netcdf
+stackstac

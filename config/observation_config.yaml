@@ -1,0 +1,29 @@
+development:
+  start_date: "2024-07-01"
+  end_date: "2024-07-03"
+
+sentinel2:
+  cloud_fraction_max: 0.30
+  buffer_m: 250
+  water_index: "MNDWI"
+  min_valid_water_pixels: 20
+
+weather:
+  sampling_method: "nearest_grid_cell"
+
+terrain:
+  buffer_m: 250
+
+snow:
+  buffer_m: 250
+
+temporal_windows:
+  - 1d
+  - 3d
+  - 7d
+  - 30d
+  - 90d
+  - 365d
+
+duplicate_screening:
+  distance_m: 50
