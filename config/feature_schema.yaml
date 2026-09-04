@@ -1,0 +1,216 @@
+features:
+  temp_mean_3d:
+    source: era5_land
+    semantic_meaning: Mean 2m temperature over trailing 3 days
+    window: 3d
+    statistic: mean
+    causal: true
+    unit: C
+    static: false
+    missingness_semantics: "Null if no observations in window"
+    historical_availability: "Available for all periods"
+    leakage_status: "Safe (strictly pre-T)"
+    
+  temp_mean_7d:
+    source: era5_land
+    semantic_meaning: Mean 2m temperature over trailing 7 days
+    window: 7d
+    statistic: mean
+    causal: true
+    unit: C
+    static: false
+    missingness_semantics: "Null if no observations in window"
+    historical_availability: "Available for all periods"
+    leakage_status: "Safe (strictly pre-T)"
+
+  temp_mean_14d:
+    source: era5_land
+    semantic_meaning: Mean 2m temperature over trailing 14 days
+    window: 14d
+    statistic: mean
+    causal: true
+    unit: C
+    static: false
+    missingness_semantics: "Null if no observations in window"
+    historical_availability: "Available for all periods"
+    leakage_status: "Safe (strictly pre-T)"
+
+  temp_mean_30d:
+    source: era5_land
+    semantic_meaning: Mean 2m temperature over trailing 30 days
+    window: 30d
+    statistic: mean
+    causal: true
+    unit: C
+    static: false
+    missingness_semantics: "Null if no observations in window"
+    historical_availability: "Available for all periods"
+    leakage_status: "Safe (strictly pre-T)"
+
+  temp_max_7d:
+    source: era5_land
+    semantic_meaning: Max 2m temperature over trailing 7 days
+    window: 7d
+    statistic: max
+    causal: true
+    unit: C
+    static: false
+    missingness_semantics: "Null if no observations in window"
+    historical_availability: "Available for all periods"
+    leakage_status: "Safe (strictly pre-T)"
+
+  temp_min_7d:
+    source: era5_land
+    semantic_meaning: Min 2m temperature over trailing 7 days
+    window: 7d
+    statistic: min
+    causal: true
+    unit: C
+    static: false
+    missingness_semantics: "Null if no observations in window"
+    historical_availability: "Available for all periods"
+    leakage_status: "Safe (strictly pre-T)"
+
+  precip_sum_3d:
+    source: era5_land
+    semantic_meaning: Accumulated precipitation over trailing 3 days
+    window: 3d
+    statistic: sum
+    causal: true
+    unit: mm
+    static: false
+    missingness_semantics: "Null if no observations in window"
+    historical_availability: "Available for all periods"
+    leakage_status: "Safe (strictly pre-T)"
+
+  precip_sum_7d:
+    source: era5_land
+    semantic_meaning: Accumulated precipitation over trailing 7 days
+    window: 7d
+    statistic: sum
+    causal: true
+    unit: mm
+    static: false
+    missingness_semantics: "Null if no observations in window"
+    historical_availability: "Available for all periods"
+    leakage_status: "Safe (strictly pre-T)"
+
+  precip_sum_14d:
+    source: era5_land
+    semantic_meaning: Accumulated precipitation over trailing 14 days
+    window: 14d
+    statistic: sum
+    causal: true
+    unit: mm
+    static: false
+    missingness_semantics: "Null if no observations in window"
+    historical_availability: "Available for all periods"
+    leakage_status: "Safe (strictly pre-T)"
+
+  precip_sum_30d:
+    source: era5_land
+    semantic_meaning: Accumulated precipitation over trailing 30 days
+    window: 30d
+    statistic: sum
+    causal: true
+    unit: mm
+    static: false
+    missingness_semantics: "Null if no observations in window"
+    historical_availability: "Available for all periods"
+    leakage_status: "Safe (strictly pre-T)"
+
+  precip_max_7d:
+    source: era5_land
+    semantic_meaning: Max daily precipitation over trailing 7 days
+    window: 7d
+    statistic: max
+    causal: true
+    unit: mm
+    static: false
+    missingness_semantics: "Null if no observations in window"
+    historical_availability: "Available for all periods"
+    leakage_status: "Safe (strictly pre-T)"
+
+  weather_coverage_30d:
+    source: era5_land
+    semantic_meaning: Number of valid daily weather observations in trailing 30 days
+    window: 30d
+    statistic: count
+    causal: true
+    unit: count
+    static: false
+    missingness_semantics: "Integer count (0 if empty)"
+    historical_availability: "Available for all periods"
+    leakage_status: "Safe (strictly pre-T)"
+
+  modis_historically_available:
+    source: config
+    semantic_meaning: Whether MODIS sensor was launched and active at reference time T
+    window: static
+    statistic: boolean
+    causal: true
+    unit: bool
+    static: false
+    missingness_semantics: "Always present"
+    historical_availability: "Derived from known launch dates"
+    leakage_status: "Safe (strictly pre-T)"
+    
+  sentinel2_historically_available:
+    source: config
+    semantic_meaning: Whether Sentinel-2 sensor was launched and active at reference time T
+    window: static
+    statistic: boolean
+    causal: true
+    unit: bool
+    static: false
+    missingness_semantics: "Always present"
+    historical_availability: "Derived from known launch dates"
+    leakage_status: "Safe (strictly pre-T)"
+    
+  gpm_historically_available:
+    source: config
+    semantic_meaning: Whether GPM sensor was launched and active at reference time T
+    window: static
+    statistic: boolean
+    causal: true
+    unit: bool
+    static: false
+    missingness_semantics: "Always present"
+    historical_availability: "Derived from known launch dates"
+    leakage_status: "Safe (strictly pre-T)"
+
+  terrain_elevation:
+    source: DEM
+    semantic_meaning: Lake elevation
+    window: static
+    statistic: point
+    causal: true
+    unit: m
+    static: true
+    missingness_semantics: "Null if DEM unavailable"
+    historical_availability: "Static"
+    leakage_status: "Safe"
+
+  terrain_slope:
+    source: DEM
+    semantic_meaning: Mean basin slope
+    window: static
+    statistic: point
+    causal: true
+    unit: deg
+    static: true
+    missingness_semantics: "Null if DEM unavailable"
+    historical_availability: "Static"
+    leakage_status: "Safe"
+
+  terrain_aspect:
+    source: DEM
+    semantic_meaning: Mean basin aspect
+    window: static
+    statistic: point
+    causal: true
+    unit: deg
+    static: true
+    missingness_semantics: "Null if DEM unavailable"
+    historical_availability: "Static"
+    leakage_status: "Safe"

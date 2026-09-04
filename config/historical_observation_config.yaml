@@ -1,0 +1,24 @@
+# Historical Observation Archive Configuration
+
+event_windows:
+  pre_event_days: 45
+  post_event_days: 45
+
+sources:
+  era5_land:
+    enabled: true
+    earliest_date: "1950-01-01"
+  dem:
+    enabled: true
+    earliest_date: "1000-01-01" # Static
+  modis_snow:
+    enabled: true
+    earliest_date: "2000-02-24"
+  gpm_imerg:
+    enabled: true
+    earliest_date: "2000-06-01"
+  sentinel2:
+    enabled: true
+    earliest_date: "2015-06-23"
+
+# Note: The pipeline dynamically reads the 4 eligible event dates and lake UIDs from glof_label_eligible_events.parquet.

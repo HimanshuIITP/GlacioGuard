@@ -1,0 +1,20 @@
+# Step 3.2 Label Configuration
+
+horizons_days: [3, 7, 14, 30]
+
+exclusion_window:
+  pre_event_days: 30
+  post_event_days: 30
+
+feature_windows:
+  lookback_hours: [24, 72, 168, 336, 720] # 1d, 3d, 7d, 14d, 30d
+
+coverage_thresholds:
+  min_feature_coverage_fraction: 0.5
+  max_stale_hours:
+    satellite: 720 # 30 days
+    weather: 72 # 3 days
+    snow: 168 # 7 days
+    
+temporal_spacing:
+  min_spacing_hours: 24 # Avoid explosion of identical overlapping labels

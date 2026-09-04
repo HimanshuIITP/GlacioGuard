@@ -1,0 +1,25 @@
+# ML Split Policy for GLOF Prediction
+
+split_strategy: "temporal_and_event_grouped"
+
+temporal_split:
+  # Configurable temporal cutoff point
+  # Data before this timestamp goes to train/validation
+  # Data after this timestamp goes to test
+  # It will be set dynamically or statically by the user
+  test_start_date: "2018-01-01" 
+  validation_fraction: 0.2 # Fraction of pre-test data for validation
+
+grouping:
+  # Ensure all reference rows for the same event fall into the same split
+  group_key: "matched_event_id"
+  
+diagnostic_splits:
+  # Optional holdouts for robust testing
+  hold_out_lakes: true
+  hold_out_fraction: 0.1
+  
+leakage_rules:
+  # Strict rules enforced during splitting
+  prevent_event_leakage: true
+  prevent_future_leakage: true

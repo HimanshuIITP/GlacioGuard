@@ -1,0 +1,15 @@
+sources:
+  - id: veh_global_glof_db_v3_1
+    name: "Glacier Lake Outburst Flood Database"
+    version: "3.1"
+    authors: "Lützow, Natalie; Veh, Georg"
+    organization: "University of Potsdam"
+    doi: "10.5281/zenodo.7330344"
+    record_doi: "10.5281/zenodo.7924369"
+    url: "https://zenodo.org/api/records/7924369/files/glofdatabase_V3-1.ods/content"
+    format: "ods"
+    publication_year: 2023
+    geographic_coverage: "Global"
+    time_coverage: "Historical"
+    license: "cc-by-4.0"
+    reliability_notes: "Peer-reviewed, comprehensive literature-based inventory. Aggregates multiple source types, requiring confidence weighting based on underlying references."
