@@ -282,6 +282,8 @@ def main():
             
     if all_results:
         final_df = pd.concat(all_results, ignore_index=True)
+        raw_count = len(final_df)
+        
         out_path = DATA_PROCESSED / "lake_snow_observations.parquet"
         temp_path = DATA_PROCESSED / "lake_snow_observations.tmp.parquet"
         
@@ -293,7 +295,7 @@ def main():
             
         final_df.to_parquet(temp_path, index=False)
         temp_path.replace(out_path) # Atomic replace
-        print(f"\nSaved {len(final_df)} snow records to {out_path.name}")
+        print(f"  Saved {len(final_df)} snow records to {out_path.name}")
         print("  [STATUS] SUCCESS")
     else:
         print("\nNo valid snow records extracted.")

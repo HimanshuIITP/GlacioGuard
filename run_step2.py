@@ -97,9 +97,10 @@ def run_module(module_path: Path, args_list: list):
     # Sanitize environment variables to prevent virtual environment leakage
     env = os.environ.copy()
     env.pop("PYTHONHOME", None)
-    env.pop("PYTHONPATH", None)
+    # Set PYTHONPATH to project root so submodules resolve 'processing' package
+    env["PYTHONPATH"] = str(BASE_DIR)
     
-    result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+    result = subprocess.run(cmd, capture_output=True, text=True, env=env, cwd=str(BASE_DIR))
     
     # Print live output
     # Filter out the annoying python C-level warning about <prefix>
@@ -150,6 +151,11 @@ def main():
     current_run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     os.environ["GLACIOGUARD_RUN_ID"] = current_run_id
     
+    # Resolve requested date range from args or config
+    obs_cfg = load_yaml(CONFIG_DIR / "observation_config.yaml")
+    req_start = args.start_date or obs_cfg.get("development", {}).get("start_date", "2020-01-01")
+    req_end = args.end_date or obs_cfg.get("development", {}).get("end_date") or datetime.now().strftime("%Y-%m-%d")
+    
     cmd_args = ["--run-id", current_run_id]
     if args.force:
         cmd_args.append("--force")
@@ -168,6 +174,7 @@ def main():
 
     print("=" * 60)
     print("  GlacioGuard Step 2: Full Observation Engine Pipeline")
+    print(f"  Requested window: {req_start} to {req_end}")
     print("=" * 60)
     
     # Sequence of modules to run
@@ -202,7 +209,7 @@ def main():
     for mod_name, st in statuses.items():
         print(f"  {mod_name:30s} : {st}")
         
-    print_final_report(statuses, current_run_id)
+    print_final_report(statuses, current_run_id, req_start, req_end)
     
     # Check completion condition
     dem_ok = statuses.get("dem_terrain.py") == "SUCCESS"
@@ -223,7 +230,7 @@ def main():
         sys.exit(1)
 
 
-def print_final_report(statuses, run_id):
+def print_final_report(statuses, run_id, req_start, req_end):
     import pandas as pd
     import json
     
@@ -237,22 +244,41 @@ def print_final_report(statuses, run_id):
     except Exception:
         total_master = 0
         
-    # Analyze raw files
+    # Requested date range boundaries for filtering
+    dt_start = pd.to_datetime(req_start).tz_localize("UTC")
+    dt_end = pd.to_datetime(req_end).tz_localize("UTC") + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        
+    # Analyze processed files -- filter by requested date range
     metrics = {}
     sources = [
-        ("ERA5-Land", "era5_land.py", "lake_weather_observations.parquet"),
-        ("Sentinel-2", "sentinel2_observations.py", "lake_satellite_observations.parquet"),
-        ("MODIS", "modis_snow.py", "lake_snow_observations.parquet"),
-        ("GPM IMERG", "gpm_imerg.py", "lake_precipitation_highfreq.parquet")
+        ("ERA5-Land", "era5_land.py", "lake_weather_observations.parquet", "observation_timestamp"),
+        ("Sentinel-2", "sentinel2_observations.py", "lake_satellite_observations.parquet", "observation_timestamp"),
+        ("MODIS", "modis_snow.py", "lake_snow_observations.parquet", "observation_timestamp"),
+        ("GPM IMERG", "gpm_imerg.py", "lake_precipitation_highfreq.parquet", "observation_timestamp")
     ]
     
-    for name, script, file_name in sources:
+    for name, script, file_name, ts_col in sources:
         raw_path = DATA_PROCESSED / file_name
         current = 0
         cached = 0
+        total_in_file = 0
+        in_range = 0
         if raw_path.exists():
             try:
                 df = pd.read_parquet(raw_path)
+                total_in_file = len(df)
+                
+                # total_in_file is Raw/cache rows
+                if ts_col in df.columns:
+                    df[ts_col] = pd.to_datetime(df[ts_col], utc=True)
+                    # Filter df to only in-range observations for subsequent counts
+                    df = df[
+                        (df[ts_col] >= dt_start) &
+                        (df[ts_col] <= dt_end)
+                    ]
+                in_range = len(df)
+                
+                # Now calculate Current Valid and Cached Valid only on the in-range observations
                 if "run_id" in df.columns:
                     current = (df["run_id"] == run_id).sum()
                     cached = (df["run_id"] != run_id).sum()
@@ -264,31 +290,48 @@ def print_final_report(statuses, run_id):
         metrics[name] = {
             "status": statuses.get(script, "UNKNOWN"),
             "current": int(current),
-            "cached": int(cached)
+            "cached": int(cached),
+            "total_in_file": int(total_in_file),
+            "in_range": int(in_range)
         }
     
-    print("\nSource      | Current Valid | Cached Valid | Status     ")
-    print("-" * 60)
+    print(f"\nRequested processing window: {req_start} to {req_end}")
+    print(f"\nSource      | Raw/cache | In-range | Current Valid | Cached Valid | Status     ")
+    print("-" * 85)
     for name, m in metrics.items():
-        print(f"{name:11s} | {m['current']:<13} | {m['cached']:<12} | {m['status']:10}")
+        print(f"{name:11s} | {m['total_in_file']:<9} | {m['in_range']:<8} | {m['current']:<13} | {m['cached']:<12} | {m['status']:10}")
         
     print("\nDEM")
     print(f"Acquisition: {statuses.get('dem_download.py', 'UNAVAILABLE')}")
-    print(f"Cached/available terrain: {statuses.get('dem_terrain.py_count', 5)}")  # Defaulting to 5 or fetching from logs if needed
     print(f"Extraction: {statuses.get('dem_terrain.py', 'UNKNOWN')}")
-    print("Data: AVAILABLE")
+    print("Data: AVAILABLE (static, not date-filtered)")
+    
+    # Baselines: report period separately
+    baselines_path = DATA_PROCESSED / "lake_baselines.parquet"
+    if baselines_path.exists():
+        try:
+            df_b = pd.read_parquet(baselines_path)
+            if not df_b.empty and "baseline_period_start" in df_b.columns:
+                bp_start = df_b["baseline_period_start"].dropna().min()
+                bp_end = df_b["baseline_period_end"].dropna().max()
+                print(f"\nBaseline period: {bp_start} to {bp_end} (separate from execution window {req_start} to {req_end})")
+                print(f"Baseline records: {len(df_b)}")
+        except Exception:
+            pass
     
     print(f"\nFinal Metrics:")
-    print(f"- master row count: {total_master}")
+    print(f"- Master reference rows: {total_master}")
     
     # Save run manifest
     manifest_dir = DATA_PROCESSED / "runs" / run_id
     manifest_dir.mkdir(parents=True, exist_ok=True)
     manifest = {
         "run_id": run_id,
+        "requested_start": req_start,
+        "requested_end": req_end,
         "metrics": metrics,
         "statuses": statuses,
-        "master_rows": int(total_master)
+        "master_reference_rows": int(total_master)
     }
     with open(manifest_dir / "run_manifest.json", "w") as f:
         json.dump(manifest, f, indent=2)

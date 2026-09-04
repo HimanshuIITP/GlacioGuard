@@ -235,6 +235,8 @@ def main():
             
     if all_results:
         final_df = pd.concat(all_results, ignore_index=True)
+        raw_count = len(final_df)
+        
         out_path = DATA_PROCESSED / "lake_precipitation_highfreq.parquet"
         temp_path = DATA_PROCESSED / "lake_precipitation_highfreq.tmp.parquet"
         
@@ -245,7 +247,7 @@ def main():
             
         final_df.to_parquet(temp_path, index=False)
         temp_path.replace(out_path)
-        print(f"\nSaved {len(final_df)} precipitation records to {out_path.name}")
+        print(f"  Saved {len(final_df)} precipitation records to {out_path.name}")
         print("  [STATUS] SUCCESS")
     else:
         print("\nNo valid precipitation records extracted.")

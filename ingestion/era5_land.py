@@ -276,6 +276,8 @@ def main():
             
     if all_results:
         final_df = pd.concat(all_results, ignore_index=True)
+        raw_count = len(final_df)
+        
         out_path = DATA_PROCESSED / "lake_weather_observations.parquet"
         temp_path = DATA_PROCESSED / "lake_weather_observations.tmp.parquet"
         
@@ -286,7 +288,7 @@ def main():
             
         final_df.to_parquet(temp_path, index=False)
         temp_path.replace(out_path)
-        print(f"\nSaved {len(final_df)} weather records to {out_path.name}")
+        print(f"  Saved {len(final_df)} weather records to {out_path.name} (raw/cache block)")
         print("  [STATUS] SUCCESS")
     else:
         print("\nNo weather records extracted.")
