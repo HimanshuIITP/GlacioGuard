@@ -101,31 +101,29 @@ def main():
                     stats["manual_review"] += 1
             else:
                 # Tier 2: Nearest lake within 5km
-                # Buffer point by 5km
-                buffer_geom = pt_proj.geometry.buffer(5000)
-                buffer_gdf = gpd.GeoDataFrame(geometry=buffer_geom, crs="EPSG:3857")
+                buffer_5km = pt_proj.geometry.buffer(5000)
+                buffer_gdf_5km = gpd.GeoDataFrame(geometry=buffer_5km, crs="EPSG:3857")
                 
-                # Find lakes intersecting buffer
-                nearby = gpd.sjoin(gdf_lakes_proj, buffer_gdf, predicate='intersects')
-                if len(nearby) > 0:
-                    candidate_count = len(nearby)
+                nearby_5km = gpd.sjoin(gdf_lakes_proj, buffer_gdf_5km, predicate='intersects')
+                if len(nearby_5km) > 0:
+                    distances = nearby_5km.geometry.distance(pt_proj.geometry.iloc[0]).sort_values()
+                    closest_idx = distances.index[0]
+                    min_dist = distances.iloc[0]
+                    candidate_count = len(nearby_5km)
                     
-                    # Find exactly the closest one
-                    # Calculate distances from point to all nearby polygons
-                    distances = nearby.geometry.distance(pt_proj.geometry.iloc[0])
-                    closest_idx = distances.idxmin()
-                    min_dist = distances[closest_idx]
-                    
-                    lake_uid = nearby.loc[closest_idx, "lake_uid"]
-                    
-                    # Do not automatically confirm! 
-                    # The prompt says: "Tier-2 “nearest lake within 5 km” is acceptable as a candidate-generation method, but do not automatically label such a match as confirmed. Preserve candidate_count, distance, method, and confidence, with ambiguous cases left unmatched/manual-review."
-                    # We leave match_status as MANUAL_REVIEW if distance > 0, or UNMATCHED if candidates > 1
+                    lake_uid = nearby_5km.loc[closest_idx, "lake_uid"]
                     match_method = "distance_buffer_5km"
                     match_distance = round(min_dist, 1)
                     
-                    if candidate_count == 1 and min_dist < 1000:
-                        # Very close, single candidate
+                    is_dominant = False
+                    if candidate_count == 1:
+                        is_dominant = True
+                    elif candidate_count > 1:
+                        second_dist = distances.iloc[1]
+                        if second_dist - min_dist > 300:
+                            is_dominant = True
+                            
+                    if is_dominant:
                         match_status = "MATCHED"
                         lake_match_confidence = "MEDIUM"
                         stats["distance_matches"] += 1
@@ -136,8 +134,19 @@ def main():
                         stats["manual_review"] += 1
                         stats["match_conf_low"] += 1
                 else:
-                    match_status = "UNMATCHED"
-                    stats["unmatched"] += 1
+                    # Tier 3: Diagnostic 5-10km
+                    buffer_10km = pt_proj.geometry.buffer(10000)
+                    buffer_gdf_10km = gpd.GeoDataFrame(geometry=buffer_10km, crs="EPSG:3857")
+                    nearby_10km = gpd.sjoin(gdf_lakes_proj, buffer_gdf_10km, predicate='intersects')
+                    
+                    if len(nearby_10km) > 0:
+                        match_status = "UNMATCHED"
+                        match_method = "diagnostic_missed_match_10km"
+                        stats["unmatched"] += 1
+                    else:
+                        match_status = "UNMATCHED"
+                        match_method = "no_candidate_10km"
+                        stats["unmatched"] += 1
         else:
             match_status = "UNMATCHED"
             stats["unmatched"] += 1

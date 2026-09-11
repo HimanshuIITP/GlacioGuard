@@ -1,0 +1,80 @@
+models:
+  - name: Naive_Precip_Threshold
+    type: heuristic
+    description: Predicts POSITIVE if precip_sum_7d > 50mm
+  - name: LogisticRegression
+    type: sklearn.linear_model.LogisticRegression
+    params:
+      max_iter: 1000
+      random_state: 42
+  - name: HistGradientBoosting
+    type: sklearn.ensemble.HistGradientBoostingClassifier
+    params:
+      max_iter: 100
+      random_state: 42
+
+class_weights:
+  - None
+  - balanced
+
+feature_groups:
+  Model_A_Weather_Only:
+    - temp_mean_3d
+    - temp_mean_7d
+    - temp_mean_14d
+    - temp_mean_30d
+    - temp_max_7d
+    - temp_min_7d
+    - precip_sum_3d
+    - precip_sum_7d
+    - precip_sum_14d
+    - precip_sum_30d
+    - precip_max_7d
+    - weather_coverage_30d
+  Model_B_Weather_And_Availability:
+    - temp_mean_3d
+    - temp_mean_7d
+    - temp_mean_14d
+    - temp_mean_30d
+    - temp_max_7d
+    - temp_min_7d
+    - precip_sum_3d
+    - precip_sum_7d
+    - precip_sum_14d
+    - precip_sum_30d
+    - precip_max_7d
+    - weather_coverage_30d
+    - modis_historically_available
+    - sentinel2_historically_available
+    - gpm_historically_available
+  Model_C_All_Available:
+    - temp_mean_3d
+    - temp_mean_7d
+    - temp_mean_14d
+    - temp_mean_30d
+    - temp_max_7d
+    - temp_min_7d
+    - precip_sum_3d
+    - precip_sum_7d
+    - precip_sum_14d
+    - precip_sum_30d
+    - precip_max_7d
+    - weather_coverage_30d
+    - modis_historically_available
+    - sentinel2_historically_available
+    - gpm_historically_available
+
+split_policy:
+  primary:
+    method: loocv_event
+    description: "Leave-One-Event-Out cross validation grouped by matched_event_id"
+  secondary:
+    method: chronological
+    description: "Chronological holdout (train <= 2005, test > 2005)"
+    cutoff_year: 2005
+
+horizons:
+  - 3
+  - 7
+  - 14
+  - 30

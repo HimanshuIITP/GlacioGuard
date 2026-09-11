@@ -305,7 +305,7 @@ def print_final_report(statuses, run_id, req_start, req_end):
     print(f"Acquisition: {statuses.get('dem_download.py', 'UNAVAILABLE')}")
     print(f"Extraction: {statuses.get('dem_terrain.py', 'UNKNOWN')}")
     print("Data: AVAILABLE (static, not date-filtered)")
-    
+
     # Baselines: report period separately
     baselines_path = DATA_PROCESSED / "lake_baselines.parquet"
     if baselines_path.exists():

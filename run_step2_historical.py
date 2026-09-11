@@ -70,7 +70,7 @@ def main():
             if not src_conf.get("enabled", False):
                 continue
                 
-            earliest = pd.to_datetime(src_conf["earliest_date"])
+            earliest = pd.to_datetime(src_conf["earliest_date"]).tz_localize('UTC')
             if event_dt + post_days < earliest:
                 print(f"  [SKIP] {src_name} - sensor not available until {earliest.strftime('%Y-%m-%d')}")
                 continue
@@ -78,7 +78,7 @@ def main():
             script_path = ingestion_scripts.get(src_name)
             if script_path and script_path.exists():
                 # We can't fetch if the start date is before earliest, we adjust start_date for that source
-                adj_start = max(pd.to_datetime(start_date), earliest).strftime("%Y-%m-%d")
+                adj_start = max(pd.to_datetime(start_date).tz_localize('UTC'), earliest).strftime("%Y-%m-%d")
                 
                 cmd_args = ["--lake-id", lake_uid, "--start-date", adj_start, "--end-date", end_date]
                 if args.force:
