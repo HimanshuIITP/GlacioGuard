@@ -1,0 +1,32 @@
+lake_inventories:
+  nepal:
+    source_name: "ICIMOD Nepal Glacial Lake Inventory"
+    inventory_version: "2015"
+    inventory_epoch: "2015 ± 2 years"
+    observation_period: "2014-2016"
+    source_method: "Landsat remote sensing, manual digitization"
+    source_url: "https://geoapps.icimod.org/icimodarcgis/rest/services/HKH/GlacialLake/MapServer/1"
+  bhutan:
+    source_name: "ICIMOD HKH Glacial Lake Inventory (Bhutan clipped)"
+    inventory_version: "2005"
+    inventory_epoch: "2005 ± 2 years"
+    observation_period: "2003-2007"
+    source_method: "Landsat remote sensing, decadal baseline"
+    source_url: "https://geoapps.icimod.org/icimodarcgis/rest/services/HKH/GlacialLake/MapServer/0"
+  india:
+    source_name: "ICIMOD India Glacial Lake Inventory 2022"
+    inventory_version: "2022"
+    inventory_epoch: "2022 ± 1 year"
+    observation_period: "2021-2023"
+    source_method: "Remote sensing"
+    source_url: "https://zenodo.org/record/india_glacial_lakes"
+
+event_database:
+  source_name: "ICIMOD HMA GLOF Database"
+  version: "V3.1"
+  source_method: "Literature synthesis, historic archives"
+
+geographic_holdout:
+  min_positive_events_per_test_region: 5
+  min_positive_events_per_train_region: 5
+  status_when_below_threshold: "INSUFFICIENT_EVENT_COUNT_FOR_GEOGRAPHIC_HOLDOUT"
