@@ -105,8 +105,8 @@ def main():
         
     # Group configurations
     feature_groups = {
-        "Weather_Only": [c for c in df.columns if c.startswith("temperature") or c.startswith("precipitation")],
-        "Weather_Availability": [c for c in df.columns if c.startswith("temperature") or c.startswith("precipitation") or "unavailable" in c],
+        "Weather_Only": [c for c in df.columns if c.startswith("temp_") or c.startswith("precip_")],
+        "Weather_Availability": [c for c in df.columns if c.startswith("temp_") or c.startswith("precip_") or "unavailable" in c or "available" in c],
         "All_Available": [c for c in df.columns if c not in ["lake_uid", "reference_timestamp", "event_within_horizon", "temporal_eligibility_status", "country", "label_status", "horizon_days", "matched_event_id", "event_confidence", "lake_match_confidence", "processing_version", "feature_schema_version"]]
     }
     
@@ -126,10 +126,16 @@ def main():
         # Ensure cols exist
         f_cols = [c for c in f_cols if c in df.columns]
         
-        X_train = df_train[f_cols]
+        X_train = df_train[f_cols].copy()
         y_train = df_train["event_within_horizon"]
-        X_test = df_test[f_cols]
+        X_test = df_test[f_cols].copy()
         y_test = df_test["event_within_horizon"]
+        
+        # Drop columns that are completely NaN in training
+        valid_cols = X_train.columns[X_train.notna().any()].tolist()
+        X_train = X_train[valid_cols]
+        X_test = X_test[valid_cols]
+        f_cols = valid_cols
         
         for m_name, model in models.items():
             if m_name == "NaivePrecipThreshold" and "precipitation_mm_7d_sum" not in f_cols:

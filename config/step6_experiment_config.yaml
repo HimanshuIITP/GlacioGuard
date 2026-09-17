@@ -1,0 +1,114 @@
+# Step 6 Experiment Configuration
+
+horizons: [3, 7, 14, 30]
+
+feature_groups:
+  WEATHER_ONLY:
+    - feature_name: temp_mean_3d
+      family: weather_snapshot
+    - feature_name: precip_sum_3d
+      family: weather_snapshot
+    - feature_name: temp_mean_7d
+      family: weather_snapshot
+    - feature_name: temp_max_7d
+      family: weather_snapshot
+    - feature_name: temp_min_7d
+      family: weather_snapshot
+    - feature_name: precip_sum_7d
+      family: weather_snapshot
+    - feature_name: precip_max_7d
+      family: weather_snapshot
+
+  WEATHER_AVAILABILITY:
+    - feature_name: temp_mean_3d
+      family: weather_snapshot
+    - feature_name: precip_sum_3d
+      family: weather_snapshot
+    - feature_name: temp_mean_7d
+      family: weather_snapshot
+    - feature_name: temp_max_7d
+      family: weather_snapshot
+    - feature_name: temp_min_7d
+      family: weather_snapshot
+    - feature_name: precip_sum_7d
+      family: weather_snapshot
+    - feature_name: precip_max_7d
+      family: weather_snapshot
+    - feature_name: modis_historically_available
+      family: availability
+    - feature_name: sentinel2_historically_available
+      family: availability
+    - feature_name: gpm_historically_available
+      family: availability
+    - feature_name: weather_coverage_30d
+      family: availability
+
+  ALL_AVAILABLE:
+    - feature_name: temp_mean_3d
+      family: weather_snapshot
+    - feature_name: precip_sum_3d
+      family: weather_snapshot
+    - feature_name: temp_mean_7d
+      family: weather_snapshot
+    - feature_name: temp_max_7d
+      family: weather_snapshot
+    - feature_name: temp_min_7d
+      family: weather_snapshot
+    - feature_name: precip_sum_7d
+      family: weather_snapshot
+    - feature_name: precip_max_7d
+      family: weather_snapshot
+    - feature_name: temp_mean_14d
+      family: rolling
+    - feature_name: precip_sum_14d
+      family: rolling
+    - feature_name: temp_mean_30d
+      family: rolling
+    - feature_name: precip_sum_30d
+      family: rolling
+    - feature_name: modis_historically_available
+      family: availability
+    - feature_name: sentinel2_historically_available
+      family: availability
+    - feature_name: gpm_historically_available
+      family: availability
+    - feature_name: weather_coverage_30d
+      family: availability
+    - feature_name: terrain_elevation
+      family: terrain
+    - feature_name: terrain_slope
+      family: terrain
+    - feature_name: terrain_aspect
+      family: terrain
+
+  WEATHER_AVAILABILITY_TEMPORAL_DYNAMICS:
+    - feature_name: temp_mean_3d
+      family: weather_snapshot
+    - feature_name: precip_sum_3d
+      family: weather_snapshot
+    - feature_name: temp_mean_7d
+      family: weather_snapshot
+    - feature_name: temp_max_7d
+      family: weather_snapshot
+    - feature_name: temp_min_7d
+      family: weather_snapshot
+    - feature_name: precip_sum_7d
+      family: weather_snapshot
+    - feature_name: precip_max_7d
+      family: weather_snapshot
+    - feature_name: modis_historically_available
+      family: availability
+    - feature_name: sentinel2_historically_available
+      family: availability
+    - feature_name: gpm_historically_available
+      family: availability
+    - feature_name: weather_coverage_30d
+      family: availability
+    - feature_name: temp_mean_14d
+      family: rolling
+    - feature_name: precip_sum_14d
+      family: rolling
+    - feature_name: temp_mean_30d
+      family: rolling
+    - feature_name: precip_sum_30d
+      family: rolling

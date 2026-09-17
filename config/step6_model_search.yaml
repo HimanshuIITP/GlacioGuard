@@ -1,0 +1,23 @@
+# Step 6 Hyperparameter and Threshold Configuration
+
+xgboost:
+  max_depth: [2, 3, 4]
+  min_child_weight: [1, 3, 5]
+  learning_rate: [0.03, 0.05, 0.1]
+  n_estimators: [100, 200, 400]
+  subsample: [0.8, 1.0]
+  colsample_bytree: [0.8, 1.0]
+  reg_lambda: [1, 5, 10]
+  reg_alpha: [0, 0.1]
+
+thresholds:
+  candidates: [0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80]
+
+selection_criteria:
+  model_primary: "pr_auc"
+  model_tiebreakers:
+    - "f1"
+    - "recall"
+    - "simpler_model"
+  tie_tolerance: 0.005
+  threshold_primary: "f1"
