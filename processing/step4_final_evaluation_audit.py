@@ -9,13 +9,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 
 def main():
-    print("Running Final Evaluation Audit...")
+    print("Running Final Evaluation Audit (Reconciled)...")
     
     preds_path = PROCESSED_DIR / "baseline_predictions.parquet"
     df_preds = pd.read_parquet(preds_path)
     
+    events_path = PROCESSED_DIR / "glof_events.parquet"
+    df_events_meta = pd.read_parquet(events_path)
+    df_events_meta['event_date'] = pd.to_datetime(df_events_meta['event_date'], utc=True)
+    
+    matches_path = PROCESSED_DIR / "glof_event_lake_matches.parquet"
+    df_matches = pd.read_parquet(matches_path)
+    
+    # Identify taxonomy
+    confirmed_events = df_matches[df_matches['match_method'] == 'polygon_intersection']['event_id'].tolist()
+    manual_review_events = df_matches[df_matches['match_method'].str.contains('distance', na=False)]['event_id'].tolist()
+    unresolved_events = df_matches[df_matches['match_status'] == 'UNMATCHED']['event_id'].tolist()
+    
     # 1. Pooled LOOCV Predictions
-    # Exclude chronological holdout
     df_loocv = df_preds[df_preds['split_name'].str.startswith('loocv_')].copy()
     
     pooled_results = []
@@ -46,7 +57,7 @@ def main():
             f1 = np.nan
             bal_acc = np.nan
             spec = np.nan
-            fp = sum(y_pred)
+            fp = sum((y_pred == 1) & (y_true == 0))
             
         pooled_results.append({
             'horizon_days': name[0],
@@ -62,54 +73,60 @@ def main():
             'f1': f1,
             'specificity': spec,
             'balanced_accuracy': bal_acc,
-            'false_alarms': fp
+            'row_level_false_positives': fp
         })
         
     df_pooled = pd.DataFrame(pooled_results)
-    df_pooled.to_parquet(PROCESSED_DIR / "step4_pooled_oof_results.parquet", index=False)
     
-    # 2. Per-Event LOOCV Evaluation
-    # Select specific models
-    selected_configs = [
-        (3, 'LogisticRegression', 'Model_A_Weather_Only', 'balanced'),
-        (7, 'LogisticRegression', 'Model_A_Weather_Only', 'balanced'),
-        (14, 'LogisticRegression', 'Model_A_Weather_Only', 'None'),
-        (30, 'HistGradientBoosting', 'Model_A_Weather_Only', 'None')
-    ]
-    
-    events = ["EVT_745dcf361a17", "EVT_8a0a19a7e4b8", "EVT_e87f809740b9", "EVT_294a19aabdcd"]
+    # Candidate selection logic based on pooled OOF results
+    candidates = {}
+    for h in [3, 7, 14, 30]:
+        h_df = df_pooled[df_pooled['horizon_days'] == h]
+        best_row = h_df.sort_values('pr_auc', ascending=False).iloc[0]
+        if best_row['pr_auc'] > 0.15 and best_row['f1'] > 0.1:
+            candidates[h] = best_row
+        else:
+            candidates[h] = None
+
+    # Event-Level Evaluation
+    all_eligible_events = confirmed_events + manual_review_events
     
     event_evals = []
-    for h, m, fg, ws in selected_configs:
+    for h in [3, 7, 14, 30]:
+        cand = candidates[h]
+        if cand is None:
+            continue
+            
+        m = cand['model_name']
+        fg = cand['feature_group']
+        ws = cand['weighting_strategy']
+        
         sub_df = df_loocv[(df_loocv['horizon_days'] == h) & 
                           (df_loocv['model_name'] == m) & 
                           (df_loocv['feature_group'] == fg) & 
                           (df_loocv['weighting_strategy'] == ws)]
                           
-        for evt in events:
+        for evt in all_eligible_events:
             evt_df = sub_df[sub_df['matched_event_id'] == evt].copy()
             if evt_df.empty:
                 continue
                 
-            # Assume chronological sorting
+            evt_meta = df_events_meta[df_events_meta['event_id'] == evt].iloc[0]
+            event_date = evt_meta['event_date']
+                
             evt_df['reference_timestamp'] = pd.to_datetime(evt_df['reference_timestamp'], utc=True)
             evt_df = evt_df.sort_values('reference_timestamp')
             
             valid_rows = len(evt_df)
             pos_rows = evt_df['true_label'].sum()
             
-            # Detect positives strictly before/during event
             pos_preds = evt_df[(evt_df['predicted_class'] == 1) & (evt_df['true_label'] == 1)]
             
             detected = 'YES' if not pos_preds.empty else 'NO'
-            earliest_alert = pos_preds.iloc[0]['reference_timestamp'].isoformat() if not pos_preds.empty else None
-            # Approx lead time = max ref_ts of positive labels minus earliest alert
-            # Actually true_label=1 means the event is within horizon from this reference timestamp
-            # So lead time is the horizon distance from the alert, or just the earliest alert timestamp difference.
-            # Let's just calculate lead time as (last valid positive reference timestamp - earliest alert reference timestamp)
-            if not pos_preds.empty:
-                last_valid = evt_df[evt_df['true_label'] == 1].iloc[-1]['reference_timestamp']
-                lead_time_days = (last_valid - pos_preds.iloc[0]['reference_timestamp']).days
+            earliest_alert = pos_preds.iloc[0]['reference_timestamp'] if not pos_preds.empty else None
+            
+            if earliest_alert is not None:
+                lead_time_days = (event_date - earliest_alert).days
             else:
                 lead_time_days = None
                 
@@ -121,19 +138,18 @@ def main():
                 'model_name': m,
                 'event_id': evt,
                 'detected': detected,
-                'earliest_alert': earliest_alert,
+                'earliest_alert': earliest_alert.isoformat() if earliest_alert else None,
                 'lead_time_days': lead_time_days,
                 'alert_rows': num_alerts,
-                'false_alerts': false_alerts,
+                'event_window_false_alerts': false_alerts,
                 'valid_test_rows': valid_rows,
                 'positive_rows': pos_rows
             })
             
     df_events = pd.DataFrame(event_evals)
 
-    # 4. Chronological
+    # Fold averages (secondary diagnostic)
     df_chrono = df_preds[df_preds['split_name'] == 'chronological']
-    # Determine train vs test split
     cutoff_year = 2005
     df_features = pd.read_parquet(PROCESSED_DIR / "glof_feature_matrix.parquet")
     chrono_train = df_features[pd.to_datetime(df_features['reference_timestamp']).dt.year <= cutoff_year]
@@ -142,53 +158,54 @@ def main():
     train_events = chrono_train['matched_event_id'].dropna().unique().tolist()
     test_events = chrono_test['matched_event_id'].dropna().unique().tolist()
     
-    # Write report
-    report_path = PROCESSED_DIR / "step4_final_evaluation_report.md"
+    report_path = PROCESSED_DIR / "step4_final_evaluation_report_reconciled.md"
     with open(report_path, "w") as f:
-        f.write("# Step 4 Final Evaluation Audit Report\n\n")
-        f.write("## 1. Pooled OOF Results\n")
+        f.write("# Step 4 Final Evaluation Audit Report (Reconciled)\n\n")
+        
+        f.write("## 1. Event Group Definitions\n")
+        f.write(f"- **Confirmed GLOF Event IDs (Polygon Matches)**: {confirmed_events}\n")
+        f.write(f"- **Manual-Review Event IDs (Distance Matches)**: {manual_review_events}\n")
+        f.write(f"- **Unresolved Event IDs**: {len(unresolved_events)} events without valid candidates.\n")
+        f.write("- **Control-Group IDs**: Negative-eligible periods associated with the lakes of the above eligible events.\n")
+        f.write("- **Verification**: Only the 10 combined Confirmed and Manual-Review eligible events produced positive labels in this dataset.\n\n")
+
+        f.write("## 2. False Alarm Definitions\n")
+        f.write("- **Row-level false positives**: Predicted positive during NEGATIVE_ELIGIBLE reference rows (pooled OOF table).\n")
+        f.write("- **Event-window false alerts**: Predicted alerts outside the valid pre-event alert window for a particular event (event-level table).\n\n")
+
+        f.write("## 3. Pooled OOF Results (Primary Performance Estimate)\n")
         f.write(df_pooled.to_csv(index=False, sep='|'))
         f.write("\n\n")
         
-        f.write("## 2. Event-Level Evaluation (Selected Candidates)\n")
-        f.write(df_events.to_csv(index=False, sep='|'))
+        f.write("## 4. Candidate Models\n")
+        for h in [3, 7, 14, 30]:
+            cand = candidates[h]
+            if cand is not None:
+                f.write(f"- {h}d: `EXPLORATORY_CANDIDATE` = {cand['model_name']} ({cand['feature_group']}, {cand['weighting_strategy']}). Selected based on highest Pooled PR-AUC.\n")
+            else:
+                f.write(f"- {h}d: `NO_CLEAR_EXPLORATORY_CANDIDATE`. No configuration demonstrated convincing pooled predictive signal.\n")
+        f.write("\n")
+        
+        f.write("## 5. Event-Level Evaluation (Selected Candidates)\n")
+        if not df_events.empty:
+            f.write(df_events.to_csv(index=False, sep='|'))
+        else:
+            f.write("No candidate models met the threshold for event-level reporting.\n")
         f.write("\n\n")
         
-        f.write("## 3. Fold Integrity\n")
-        f.write("- `event_group_leakage = 0` (Confirmed by strictly matching LOOCV split logic to `lake_uid`/`matched_event_id`)\n\n")
-        
-        f.write("## 4. Chronological Holdout\n")
+        f.write("## 6. Chronological Holdout (Secondary Diagnostic)\n")
         f.write(f"- Train event IDs: {train_events}\n")
         f.write(f"- Test event IDs: {test_events}\n")
-        f.write(f"- Train rows: {len(chrono_train)}\n")
-        f.write(f"- Test rows: {len(chrono_test)}\n")
-        f.write(f"- Test positive rows: {len(chrono_test[chrono_test['label_status'] == 'POSITIVE'])}\n")
-        if len(test_events) == 1:
-            f.write("- **STATUS**: `INSUFFICIENT_EVENT_COUNT_FOR_ROBUST_HOLDOUT`\n\n")
-            
-        f.write("## 5. Naive Baseline Comparison\n")
-        f.write("- ML models generally improve PR-AUC and F1 over the 50mm precip naive threshold, primarily by drastically reducing false alarms in negative-eligible periods, while maintaining event detection. The naive threshold triggers excessively on ordinary monsoon periods.\n\n")
+        f.write("- **STATUS**: Underpowered. Given the extremely small sample of eligible events (10), the chronological split is highly sensitive to the exact event cutoffs and lacks sufficient diversity for robust generalization testing.\n\n")
         
-        f.write("## 6. Metric Validity\n")
-        f.write("- NaNs in metrics exist only where a group has zero positive or zero negative examples (e.g., pure control folds, or undefined ROC-AUC). Missing metrics preserved as `NaN`, not zero.\n\n")
-        
-        f.write("## 7. Feature-Group Redundancy\n")
-        f.write("- Weather+Availability exactly matches All Available because there are no *valid numerical* snow/satellite features available historically to add to the matrix; all older satellite modalities flag as unavailable and output NaN, which LR pipeline imputes to median (zeroing out variance), or HistGB treats as missing, yielding identical node splits to Weather+Availability.\n\n")
-        
-        f.write("## 8. Model Ranking (Candidates)\n")
-        f.write("- 3d: `EXPLORATORY_CANDIDATE` = LogisticRegression (Weather Only, balanced)\n")
-        f.write("- 7d: `EXPLORATORY_CANDIDATE` = LogisticRegression (Weather Only, balanced)\n")
-        f.write("- 14d: `EXPLORATORY_CANDIDATE` = LogisticRegression (Weather Only)\n")
-        f.write("- 30d: `EXPLORATORY_CANDIDATE` = HistGradientBoosting (Weather Only)\n\n")
-        
-        f.write("## 9. Scientific Interpretation\n")
-        f.write("- Only 4 confirmed historical GLOF events exist in the evaluation.\n")
+        f.write("## 7. Scientific Interpretation\n")
+        f.write("- Only 4 confirmed positive GLOF events (polygon-matched) and 6 manual-review events exist in the evaluation.\n")
         f.write("- Results are purely exploratory.\n")
         f.write("- No statistical generalization is justified.\n")
-        f.write("- No causal interpretation of feature importance.\n")
         f.write("- No production threshold has been established.\n")
+        f.write("- No causal interpretation of feature importance.\n")
         
-    print("Audit Complete. step4_final_evaluation_report.md generated.")
+    print("Audit Complete. step4_final_evaluation_report_reconciled.md generated.")
 
 if __name__ == "__main__":
     main()

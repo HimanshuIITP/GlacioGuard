@@ -13,3 +13,17 @@ sources:
     time_coverage: "Historical"
     license: "cc-by-4.0"
     reliability_notes: "Peer-reviewed, comprehensive literature-based inventory. Aggregates multiple source types, requiring confidence weighting based on underlying references."
+
+  - id: icimod_hma_glof_db
+    name: "ICIMOD GLOF database of High Mountain Asia"
+    version: "1.3.0"
+    authors: "Fidel Steiner"
+    organization: "ICIMOD"
+    doi: "10.5281/zenodo.7271187"
+    url: "https://zenodo.org/api/records/18257243/files/fidelsteiner/HMAGLOFDB-v1.3.0.zip/content"
+    format: "zip"
+    publication_year: 2023
+    geographic_coverage: "High Mountain Asia"
+    time_coverage: "Historical"
+    license: "cc-by-4.0"
+    reliability_notes: "Authoritative database for HMA. Secondary source for corroboration and expansion."

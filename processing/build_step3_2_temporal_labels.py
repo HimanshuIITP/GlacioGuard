@@ -61,18 +61,17 @@ def build_eligible_events():
                 reason = "Unparseable date"
         
         if status == "ELIGIBLE_POSITIVE":
-            if row["match_status"] == "UNMATCHED":
-                status = "EXCLUDED_NO_LAKE"
-                reason = "No candidate lake matched"
-            elif row["match_status"] == "MANUAL_REVIEW":
-                status = "EXCLUDED_MANUAL_REVIEW"
-                reason = "Ambiguous lake match"
+            if row["match_status"] != "HIGH_CONFIDENCE_MATCH":
+                if row["match_status"] == "MANUAL_REVIEW":
+                    status = "EXCLUDED_MANUAL_REVIEW"
+                    reason = "Ambiguous lake match"
+                else:
+                    status = "EXCLUDED_NO_LAKE"
+                    reason = "No candidate lake matched"
             elif row.get("event_confidence_x") not in ["HIGH", "MEDIUM"]:
                 status = "EXCLUDED_LOW_EVENT_CONFIDENCE"
                 reason = "Event confidence is too low"
-            elif row.get("lake_match_confidence") not in ["HIGH", "MEDIUM"]:
-                status = "EXCLUDED_LOW_LAKE_CONFIDENCE"
-                reason = "Lake match confidence is too low"
+
                 
         # We will save the parsed time even if excluded for logging
         r = row.to_dict()

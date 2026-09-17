@@ -39,6 +39,10 @@ def main():
     gdf_lakes_proj = gdf_lakes.to_crs(epsg=3857)
     
     matches = []
+    diagnostic_candidates = []
+    manual_review_queue = []
+
+
     
     stats = {
         "events": len(df_events),
@@ -88,7 +92,8 @@ def main():
                 candidate_count = len(intersecting)
                 if candidate_count == 1:
                     lake_uid = intersecting.iloc[0]["lake_uid"]
-                    match_status = "MATCHED"
+                    match_status = "HIGH_CONFIDENCE_MATCH"
+
                     match_method = "polygon_intersection"
                     match_distance = 0.0
                     lake_match_confidence = "HIGH"
@@ -123,9 +128,29 @@ def main():
                         if second_dist - min_dist > 300:
                             is_dominant = True
                             
+                    
+                    # Log to manual review queue for all nearby_5km lakes
+                    for idx_dist, (c_idx, c_dist) in enumerate(distances.items()):
+                        c_uid = nearby_5km.loc[c_idx, "lake_uid"]
+                        manual_review_queue.append({
+                            "event_id": row["event_id"],
+                            "candidate_lake_uid": c_uid,
+                            "candidate_rank": idx_dist + 1,
+                            "candidate_distance_m": round(c_dist, 1),
+                            "event_date": row["event_date"],
+                            "event_latitude": lat,
+                            "event_longitude": lon,
+                            "region": row["region"],
+                            "event_confidence": evt_conf,
+                            "lake_match_confidence": "MEDIUM" if is_dominant else "LOW",
+                            "evidence": "distance_buffer_5km",
+                            "ambiguity_reason": "Single candidate within 5km but not tier 1" if is_dominant else f"Multiple candidates ({candidate_count}) within 5km"
+                        })
+                        
                     if is_dominant:
-                        match_status = "MATCHED"
+                        match_status = "MANUAL_REVIEW"
                         lake_match_confidence = "MEDIUM"
+
                         stats["distance_matches"] += 1
                         stats["match_conf_medium"] += 1
                     else:
@@ -140,13 +165,26 @@ def main():
                     nearby_10km = gpd.sjoin(gdf_lakes_proj, buffer_gdf_10km, predicate='intersects')
                     
                     if len(nearby_10km) > 0:
+                        distances = nearby_10km.geometry.distance(pt_proj.geometry.iloc[0]).sort_values()
+                        closest_idx = distances.index[0]
+                        min_dist = distances.iloc[0]
+                        
                         match_status = "UNMATCHED"
                         match_method = "diagnostic_missed_match_10km"
                         stats["unmatched"] += 1
+                        
+                        diagnostic_candidates.append({
+                            "event_id": row["event_id"],
+                            "diagnostic_candidate_count": len(nearby_10km),
+                            "nearest_candidate_lake_uid": nearby_10km.loc[closest_idx, "lake_uid"],
+                            "nearest_candidate_distance_m": round(min_dist, 1),
+                            "diagnostic_search_radius_m": 10000
+                        })
                     else:
                         match_status = "UNMATCHED"
                         match_method = "no_candidate_10km"
                         stats["unmatched"] += 1
+
         else:
             match_status = "UNMATCHED"
             stats["unmatched"] += 1
@@ -170,6 +208,16 @@ def main():
     # Save parquet
     out_path = PROCESSED_DIR / "glof_event_lake_matches.parquet"
     df_matches.to_parquet(out_path, index=False)
+    
+    if diagnostic_candidates:
+        df_diag = pd.DataFrame(diagnostic_candidates)
+        df_diag.to_parquet(PROCESSED_DIR / "step5_distance_diagnostic_candidates.parquet", index=False)
+
+    if manual_review_queue:
+        df_man = pd.DataFrame(manual_review_queue)
+        df_man.to_parquet(PROCESSED_DIR / "step5_manual_review_queue.parquet", index=False)
+
+
     
     # Generate Report
     report_path = PROCESSED_DIR / "glof_event_matching_report.md"
