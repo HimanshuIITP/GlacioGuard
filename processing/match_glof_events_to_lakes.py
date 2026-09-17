@@ -211,11 +211,11 @@ def main():
     
     if diagnostic_candidates:
         df_diag = pd.DataFrame(diagnostic_candidates)
-        df_diag.to_parquet(PROCESSED_DIR / "step5_distance_diagnostic_candidates.parquet", index=False)
+        df_diag.to_parquet(PROCESSED_DIR / "step5_5_distance_diagnostic_candidates.parquet", index=False)
 
     if manual_review_queue:
         df_man = pd.DataFrame(manual_review_queue)
-        df_man.to_parquet(PROCESSED_DIR / "step5_manual_review_queue.parquet", index=False)
+        df_man.to_parquet(PROCESSED_DIR / "step5_5_manual_review_queue.parquet", index=False)
 
 
     

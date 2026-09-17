@@ -105,10 +105,18 @@ def main():
         lake_uid = evt["lake_uid"]
         
         date_str = str(evt["event_date"])
+        if date_str == "None" or date_str == "nan":
+            print(f"\n--- Skipping {lake_uid}: No valid event_date ---")
+            continue
+            
         if len(date_str) == 10:
             event_dt = pd.to_datetime(date_str + " 00:00:00", utc=True)
         else:
             event_dt = pd.to_datetime(date_str, utc=True)
+            
+        if pd.isna(event_dt):
+            print(f"\n--- Skipping {lake_uid}: Invalid event_date {date_str} ---")
+            continue
             
         start_dt = event_dt - pre_days
         end_dt = event_dt + post_days

@@ -18,62 +18,56 @@ def load_config():
         return yaml.safe_load(f)
 
 def build_eligible_events():
+    audit_path = PROCESSED_DIR / "step2_5_temporal_event_eligibility.parquet"
     events_path = PROCESSED_DIR / "glof_events.parquet"
     matches_path = PROCESSED_DIR / "glof_event_lake_matches.parquet"
     
-    if not events_path.exists() or not matches_path.exists():
-        raise FileNotFoundError("Run Step 3.1 first. Missing events or matches.")
+    if not events_path.exists() or not matches_path.exists() or not audit_path.exists():
+        raise FileNotFoundError("Run Step 2.5.5 first. Missing events, matches, or audit.")
         
+    df_audit = pd.read_parquet(audit_path)
     df_events = pd.read_parquet(events_path)
     df_matches = pd.read_parquet(matches_path)
     
     # Merge matches with events
     df_full = df_events.merge(df_matches, on="event_id", how="left")
+    df_full = df_full.merge(df_audit[["event_id", "temporal_eligibility_status", "reason"]], on="event_id", how="left")
     
     records = []
     
     for idx, row in df_full.iterrows():
-        # Determine eligibility
-        status = "ELIGIBLE_POSITIVE"
-        reason = "Valid high/medium confidence match"
+        t_status = row.get("temporal_eligibility_status")
         
-        # Check date validity
+        status = "ELIGIBLE_POSITIVE"
+        reason = row.get("reason", "Valid high/medium confidence match")
+        
+        if pd.isna(t_status):
+            if row.get("match_status") == "MANUAL_REVIEW":
+                status = "EXCLUDED_MANUAL_REVIEW"
+                reason = "Ambiguous lake match"
+            else:
+                status = "EXCLUDED_NO_LAKE"
+                reason = "No candidate lake matched"
+        elif t_status == "LABELABLE":
+            status = "ELIGIBLE_POSITIVE"
+        else:
+            status = f"EXCLUDED_{t_status}"
+            reason = row.get("reason", "Temporally unlabelable")
+            
+        # Parse time
         event_time = None
         precision = "DATETIME"
-        if pd.isnull(row.get("event_date")):
-            status = "EXCLUDED_INVALID_DATE"
-            reason = "Missing event_date"
-        else:
+        date_str = str(row.get("event_date"))
+        if date_str != "None" and date_str != "nan":
             try:
-                date_str = str(row["event_date"])
                 if len(date_str) == 10:
                     precision = "DATE"
-                    # We treat date-only as 00:00:00 of that date, strictly no fabrication of 23:59:59
                     event_time = pd.to_datetime(date_str + " 00:00:00", utc=True)
                 else:
                     event_time = pd.to_datetime(date_str, utc=True)
-                    
-                if pd.notnull(row.get("event_time")):
-                    event_time = pd.to_datetime(f"{date_str} {row['event_time']}", utc=True)
-                    precision = "DATETIME"
-            except Exception:
-                status = "EXCLUDED_INVALID_DATE"
-                reason = "Unparseable date"
-        
-        if status == "ELIGIBLE_POSITIVE":
-            if row["match_status"] != "HIGH_CONFIDENCE_MATCH":
-                if row["match_status"] == "MANUAL_REVIEW":
-                    status = "EXCLUDED_MANUAL_REVIEW"
-                    reason = "Ambiguous lake match"
-                else:
-                    status = "EXCLUDED_NO_LAKE"
-                    reason = "No candidate lake matched"
-            elif row.get("event_confidence_x") not in ["HIGH", "MEDIUM"]:
-                status = "EXCLUDED_LOW_EVENT_CONFIDENCE"
-                reason = "Event confidence is too low"
-
+            except:
+                pass
                 
-        # We will save the parsed time even if excluded for logging
         r = row.to_dict()
         r["eligibility_status"] = status
         r["eligibility_reason"] = reason
