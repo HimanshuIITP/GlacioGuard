@@ -1,0 +1,27 @@
+common_core:
+  min_availability: 0.80
+  max_missingness_diff: 0.20
+
+hyperparameters:
+  xgb:
+    - {name: "XGB_d3_lr0.05_n100", max_depth: 3, learning_rate: 0.05, n_estimators: 100}
+    - {name: "XGB_d4_lr0.1_n100", max_depth: 4, learning_rate: 0.1, n_estimators: 100}
+  lr:
+    - {name: "LR_balanced", class_weight: "balanced", max_iter: 1000}
+  histgb:
+    - {name: "HistGB", class_weight: null}
+    
+thresholds: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+horizons: [3, 7, 14, 30]
+
+loro_folds:
+  - {train: ["India", "Nepal"], test: "Bhutan", fold: 1}
+  - {train: ["India", "Bhutan"], test: "Nepal", fold: 2}
+  - {train: ["Nepal", "Bhutan"], test: "India", fold: 3}
+
+paths:
+  feature_matrix: "data/processed/glof_feature_matrix.parquet"
+  registry: "data/processed/hma_lake_inventory_registry.parquet"
+  step6_results: "data/processed/step6/step6_results.parquet"
+  step6_config: "config/step6_experiment_config.yaml"
+  manifest: "config/step7_artifact_manifest.json"

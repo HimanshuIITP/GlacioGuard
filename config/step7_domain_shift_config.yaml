@@ -1,0 +1,47 @@
+domains:
+  - "India"
+  - "Nepal"
+  - "Bhutan"
+
+domain_groups:
+  HMA: ["Nepal", "Bhutan"]
+
+domain_classifier:
+  xgb:
+    max_depth: 3
+    learning_rate: 0.1
+    n_estimators: 100
+  lr:
+    max_iter: 1000
+
+paths:
+  feature_matrix: "data/processed/glof_feature_matrix.parquet"
+  step6_results: "data/processed/step6/step6_results.parquet"
+  step6_outer_preds: "data/processed/step6/step6_outer_predictions.parquet"
+  step6_feature_importance: "data/processed/step6/step6_feature_importance.parquet"
+  step6_report: "data/processed/step6/step6_model_selection_report.md"
+  registry: "data/processed/hma_lake_inventory_registry.parquet"
+
+feature_categories:
+  weather: 
+    - "temp_mean_3d"
+    - "temp_mean_7d"
+    - "temp_max_7d"
+    - "temp_min_7d"
+    - "temp_mean_14d"
+    - "temp_mean_30d"
+  precipitation:
+    - "precip_sum_3d"
+    - "precip_sum_7d"
+    - "precip_max_7d"
+    - "precip_sum_14d"
+    - "precip_sum_30d"
+  availability:
+    - "modis_historically_available"
+    - "sentinel2_historically_available"
+    - "gpm_historically_available"
+    - "weather_coverage_30d"
+  terrain:
+    - "terrain_elevation"
+    - "terrain_slope"
+    - "terrain_aspect"
